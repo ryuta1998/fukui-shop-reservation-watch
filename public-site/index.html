@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#111827" />
+    <meta
+      name="description"
+      content="福井県内のソフトバンク・ワイモバイルショップの来店予約空き状況を確認できます。"
+    />
+    <title>ショップ予約 空き状況</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="./app.js" defer></script>
+  </head>
+  <body>
+    <main class="shell">
+      <header class="hero">
+        <p class="eyebrow">SHOP RESERVATION WATCH</p>
+        <h1>来店予約の空き状況</h1>
+        <p class="lead">福井県内8店舗の空き時間を、スマホからまとめて確認できます。</p>
+      </header>
+
+      <section class="panel selector-panel" aria-labelledby="store-heading">
+        <div class="selector-intro">
+          <span class="selector-step" aria-hidden="true">01</span>
+          <div>
+            <p class="section-label">店舗を選択</p>
+            <h2 id="store-heading">確認するショップ</h2>
+            <p class="selector-help">一覧から確認したい店舗を選んでください</p>
+          </div>
+        </div>
+        <label class="public-select">
+          <span>現在表示している店舗</span>
+          <select id="store-select" aria-label="確認する店舗"></select>
+        </label>
+      </section>
+
+      <section id="loading" class="panel message" aria-live="polite">
+        最新の空き状況を読み込んでいます…
+      </section>
+
+      <section id="dashboard" class="dashboard" hidden>
+        <article class="panel store-card">
+          <div>
+            <p id="carrier" class="carrier"></p>
+            <h2 id="store-name"></h2>
+            <p id="store-address" class="address"></p>
+          </div>
+          <a id="official-link" class="official-link" target="_blank" rel="noreferrer">
+            店舗の公式ページ
+          </a>
+        </article>
+
+        <section class="panel availability-panel" aria-labelledby="availability-heading">
+          <div class="availability-head">
+            <div>
+              <p class="section-label">契約内容確認・変更（30分）</p>
+              <h2 id="availability-heading">日付・時間帯</h2>
+            </div>
+            <p id="updated-at" class="updated-at"></p>
+          </div>
+
+          <div id="date-tabs" class="date-tabs" role="tablist" aria-label="日付"></div>
+          <div id="slots" class="slots" aria-live="polite"></div>
+
+          <div class="legend" aria-label="表示の説明">
+            <span><i class="dot available"></i>空きあり</span>
+            <span><i class="dot full"></i>満席</span>
+            <span><i class="dot unavailable"></i>受付なし</span>
+          </div>
+        </section>
+      </section>
+
+      <aside class="notice">
+        <strong>ご確認ください</strong>
+        <p>
+          30分ごとに取得した参考情報です。表示後に状況が変わる場合があります。
+          予約の確定は必ず公式ページで行ってください。
+        </p>
+        <p>本サイトは非公式で、ソフトバンク株式会社および各店舗とは提携していません。</p>
+      </aside>
+    </main>
+  </body>
+</html>

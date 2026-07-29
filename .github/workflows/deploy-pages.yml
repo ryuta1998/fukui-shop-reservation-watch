@@ -1,0 +1,53 @@
+name: 予約空き状況を更新して公開
+
+on:
+  push:
+    branches: ["main", "master"]
+  workflow_dispatch:
+  schedule:
+    - cron: "17,47 * * * *"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  collect-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: ソースを取得
+        uses: actions/checkout@v4
+
+      - name: Node.jsを準備
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 必要なソフトを準備
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: 全店舗の空き状況を取得
+        run: npm run static:collect
+
+      - name: Pagesを構成
+        uses: actions/configure-pages@v5
+
+      - name: 公開ファイルを準備
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: public-site
+
+      - name: 公開
+        id: deployment
+        uses: actions/deploy-pages@v4
