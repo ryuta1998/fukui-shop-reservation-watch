@@ -6,6 +6,7 @@ const CONFIG = {
   stateSheet: "監視状態",
   logSheet: "満席通知ログ",
   webhookProperty: "GOOGLE_CHAT_WEBHOOK_URL",
+  morningCheckProperty: "LAST_MORNING_CHECK_DATE",
 };
 
 const STORE_NAMES = {
@@ -27,6 +28,7 @@ function onOpen() {
     .addItem("30分ごとの監視を開始", "setupMonitoring")
     .addSeparator()
     .addItem("今すぐ確認", "checkAvailability")
+    .addItem("午前枠を今すぐ確認", "checkMorningAvailability")
     .addToUi();
 }
 
@@ -87,7 +89,11 @@ function setupMonitoring() {
   }
 
   ScriptApp.getProjectTriggers()
-    .filter((trigger) => trigger.getHandlerFunction() === "checkAvailability")
+    .filter((trigger) =>
+      ["checkAvailability", "checkMorningAvailability"].includes(
+        trigger.getHandlerFunction(),
+      ),
+    )
     .forEach((trigger) => ScriptApp.deleteTrigger(trigger));
 
   ScriptApp.newTrigger("checkAvailability")
@@ -95,9 +101,17 @@ function setupMonitoring() {
     .everyMinutes(30)
     .create();
 
+  ScriptApp.newTrigger("checkMorningAvailability")
+    .timeBased()
+    .atHour(9)
+    .nearMinute(0)
+    .everyDays(1)
+    .inTimezone("Asia/Tokyo")
+    .create();
+
   checkAvailability(true);
-  updateSetting_("監視状態", "監視中（30分ごと）");
-  ui.alert("初期データを保存し、30分ごとの監視を開始しました。");
+  updateSetting_("監視状態", "監視中（30分ごと＋毎朝9時）");
+  ui.alert("30分ごとの監視と、毎朝9時の午前枠確認を開始しました。");
 }
 
 function checkAvailability(silentBaseline) {
@@ -192,6 +206,86 @@ function notifyFull_(event) {
     result,
     event.detailUrl || "",
   ]);
+}
+
+function checkMorningAvailability() {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) return;
+
+  try {
+    ensureSheets_();
+    const today = Utilities.formatDate(
+      new Date(),
+      "Asia/Tokyo",
+      "yyyy-MM-dd",
+    );
+    const properties = PropertiesService.getScriptProperties();
+    if (properties.getProperty(CONFIG.morningCheckProperty) === today) return;
+
+    const response = UrlFetchApp.fetch(
+      `${CONFIG.dataUrl}?t=${Date.now()}`,
+      { muteHttpExceptions: true },
+    );
+    if (response.getResponseCode() !== 200) {
+      throw new Error(`データ取得エラー: ${response.getResponseCode()}`);
+    }
+
+    const payload = JSON.parse(response.getContentText());
+    const matchedStores = [];
+
+    (payload.stores || []).forEach((storeResult) => {
+      if (!storeResult.store || !Array.isArray(storeResult.dates)) return;
+      const day = storeResult.dates.find((item) => item.date === today);
+      if (!day?.isOpen || !Array.isArray(day.slots)) return;
+
+      const morningSlots = day.slots.filter((slot) => slot.time <= "11:45");
+      if (
+        morningSlots.length > 0 &&
+        morningSlots.every((slot) => slot.status === "full")
+      ) {
+        const storeId = storeResult.store.id;
+        matchedStores.push({
+          id: storeId,
+          name: STORE_NAMES[storeId] || storeResult.store.name || storeId,
+          detailUrl: storeResult.store.detailUrl || "",
+          dayOfWeek: day.dayOfWeek || "",
+        });
+      }
+    });
+
+    if (matchedStores.length > 0) {
+      const targetDate = formatJapaneseDate_(
+        today,
+        matchedStores[0].dayOfWeek,
+      );
+      const message = [
+        "【午前中予約枠・確認通知】",
+        `対象日：${targetDate}`,
+        "対象店舗：",
+        ...matchedStores.map((store) => `・${store.name}`),
+        "",
+        "午前中（11:45まで）の予約枠が0のため確認してください。",
+      ].join("\n");
+
+      const result = sendChat_(message);
+      matchedStores.forEach((store) => {
+        getSheet_(CONFIG.logSheet).appendRow([
+          new Date(),
+          store.id,
+          store.name,
+          today,
+          "",
+          0,
+          `午前確認通知・${result}`,
+          store.detailUrl,
+        ]);
+      });
+    }
+
+    properties.setProperty(CONFIG.morningCheckProperty, today);
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function sendChat_(text) {
