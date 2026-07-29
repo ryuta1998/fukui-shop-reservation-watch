@@ -480,6 +480,17 @@ button {
   background: rgba(255, 255, 255, 0.16);
 }
 
+.dateCard.fullDayCard:not(.selected) {
+  color: #a51422;
+  background: var(--red-soft);
+  border-color: #ffd4d8;
+}
+
+.dayState.fullDay {
+  color: #a51422;
+  background: #ffe5e8;
+}
+
 .schedulePanel {
   padding: 30px;
   background: var(--paper);
@@ -684,7 +695,8 @@ button {
   }
 
   .dateStrip {
-    grid-template-columns: repeat(14, 82px);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    overflow-x: visible;
   }
 
   .slotGrid {
@@ -733,12 +745,22 @@ button {
     padding: 22px 16px;
   }
 
+  .dateStrip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .dateCard {
+    min-width: 0;
+    padding: 11px 5px 10px;
+  }
+
   .legend {
     flex-wrap: wrap;
   }
 
   .slotGrid {
-    grid-template-columns: repeat(3, minmax(70px, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .footer div {

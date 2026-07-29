@@ -7,7 +7,10 @@
   --bg: #f4f7fb;
   --accent: #e60012;
   --available: #087f5b;
-  --full: #c2410c;
+  --full: #c11224;
+  --full-ink: #a30d1c;
+  --full-bg: #fff0f2;
+  --full-line: #ffc8ce;
 }
 
 * {
@@ -254,6 +257,16 @@ select:focus-visible {
   color: #fff;
 }
 
+.date-tab.is-full:not(.active) {
+  border-color: var(--full-line);
+  color: var(--full-ink);
+  background: var(--full-bg);
+}
+
+.date-tab.is-full:not(.active) strong {
+  color: var(--full-ink);
+}
+
 .slots {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
@@ -290,7 +303,14 @@ select:focus-visible {
 }
 
 .slot.full {
-  opacity: 0.7;
+  border-color: var(--full-line);
+  color: var(--full-ink);
+  background: var(--full-bg);
+}
+
+.slot.full span {
+  color: var(--full-ink);
+  font-weight: 800;
 }
 
 .empty {
@@ -378,7 +398,27 @@ select:focus-visible {
     text-align: center;
   }
 
+  .date-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
+    margin: 16px 0 18px;
+    padding: 0;
+    overflow: visible;
+  }
+
+  .date-tab {
+    width: 100%;
+    min-width: 0;
+    padding: 11px 5px;
+  }
+
   .slots {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .slot {
+    min-height: 68px;
+    padding: 12px 10px;
   }
 }

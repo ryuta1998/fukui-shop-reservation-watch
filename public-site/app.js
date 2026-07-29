@@ -70,7 +70,10 @@ function renderDates(store) {
   store.dates.forEach((day, index) => {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = index === selectedDateIndex ? "date-tab active" : "date-tab";
+    const stateClass =
+      day.isOpen && day.availableCount === 0 ? " is-full" : "";
+    button.className =
+      `${index === selectedDateIndex ? "date-tab active" : "date-tab"}${stateClass}`;
     button.setAttribute("role", "tab");
     button.setAttribute("aria-selected", String(index === selectedDateIndex));
     button.innerHTML = `

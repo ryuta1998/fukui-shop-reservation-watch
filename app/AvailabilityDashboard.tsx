@@ -229,7 +229,13 @@ export function AvailabilityDashboard() {
               <button
                 key={day.date}
                 className={
-                  selectedDate === day.date ? "dateCard selected" : "dateCard"
+                  [
+                    "dateCard",
+                    selectedDate === day.date ? "selected" : "",
+                    day.isOpen && day.availableCount === 0 ? "fullDayCard" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")
                 }
                 onClick={() => setSelectedDate(day.date)}
                 aria-pressed={selectedDate === day.date}
@@ -240,7 +246,11 @@ export function AvailabilityDashboard() {
                 <strong>{displayDate(day.date)}</strong>
                 <span
                   className={
-                    day.availableCount > 0 ? "dayState open" : "dayState closed"
+                    day.availableCount > 0
+                      ? "dayState open"
+                      : day.isOpen
+                        ? "dayState fullDay"
+                        : "dayState closed"
                   }
                 >
                   {day.availableCount > 0

@@ -1,47 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  AvailabilityResult,
-  scrapeAvailability,
-} from "../../../lib/softbank-reservation";
 import { DEFAULT_STORE_ID, getStore } from "../../../lib/stores";
 
-export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const CACHE_MS = 5 * 60 * 1000;
-const MIN_FORCE_REFRESH_MS = 60 * 1000;
+const DATA_URL =
+  "https://ryuta1998.github.io/fukui-shop-reservation-watch/data/availability.json";
 
-const cache = new Map<
-  string,
-  {
-    value: AvailabilityResult;
-    fetchedAt: number;
-  }
->();
-const inFlight = new Map<string, Promise<AvailabilityResult>>();
-
-async function getAvailability(storeId: string, force: boolean) {
-  const now = Date.now();
-  const cached = cache.get(storeId);
-  const age = cached ? now - cached.fetchedAt : Number.POSITIVE_INFINITY;
-  if (cached && (age < CACHE_MS || (force && age < MIN_FORCE_REFRESH_MS))) {
-    return cached.value;
-  }
-  const existing = inFlight.get(storeId);
-  if (existing) return existing;
-
-  const request = scrapeAvailability(storeId)
-    .then((value) => {
-      cache.set(storeId, { value, fetchedAt: Date.now() });
-      return value;
-    })
-    .finally(() => {
-      inFlight.delete(storeId);
-    });
-
-  inFlight.set(storeId, request);
-  return request;
-}
+type PublicAvailability = {
+  generatedAt: string;
+  stores: Array<{
+    store: {
+      id: string;
+    };
+    error?: string;
+  }>;
+};
 
 export async function GET(request: NextRequest) {
   const storeId =
@@ -54,22 +27,37 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const force = request.nextUrl.searchParams.get("fresh") === "1";
-    const data = await getAvailability(storeId, force);
-    return NextResponse.json(data, {
+    const response = await fetch(`${DATA_URL}?t=${Date.now()}`, {
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      throw new Error(`公開データ取得エラー: ${response.status}`);
+    }
+
+    const payload = (await response.json()) as PublicAvailability;
+    const result = payload.stores.find((item) => item.store.id === storeId);
+    if (!result) {
+      return NextResponse.json(
+        { error: "指定店舗の予約枠データが見つかりません。" },
+        { status: 404 },
+      );
+    }
+    if (result.error) {
+      return NextResponse.json(
+        { error: result.error, cached: result },
+        { status: 503 },
+      );
+    }
+
+    return NextResponse.json(result, {
       headers: {
         "Cache-Control": "no-store",
+        "X-Availability-Generated-At": payload.generatedAt,
       },
     });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "空き状況の取得に失敗しました。";
-    return NextResponse.json(
-      {
-        error: message,
-        cached: cache.get(storeId)?.value ?? null,
-      },
-      { status: 503 },
-    );
+    return NextResponse.json({ error: message }, { status: 503 });
   }
 }
