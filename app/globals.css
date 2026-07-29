@@ -40,7 +40,7 @@ button {
 }
 
 .dashboard {
-  width: min(1180px, calc(100% - 32px));
+  width: min(760px, calc(100% - 32px));
   margin: 0 auto;
   padding-bottom: 56px;
 }
@@ -397,11 +397,10 @@ button {
 
 .dateStrip {
   display: grid;
-  grid-template-columns: repeat(14, minmax(76px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
   margin-bottom: 18px;
-  overflow-x: auto;
-  scrollbar-width: thin;
+  overflow-x: visible;
 }
 
 .dateCard {
@@ -546,7 +545,7 @@ button {
 
 .slotGrid {
   display: grid;
-  grid-template-columns: repeat(8, minmax(74px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 9px;
 }
 
