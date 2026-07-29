@@ -34,7 +34,7 @@ select {
 }
 
 .shell {
-  width: min(100% - 28px, 920px);
+  width: min(920px, calc(100% - 28px));
   margin: 0 auto;
   padding: 44px 0 64px;
 }
@@ -371,7 +371,7 @@ select:focus-visible {
 
 @media (max-width: 640px) {
   .shell {
-    width: min(100% - 20px, 920px);
+    width: min(920px, calc(100% - 20px));
     padding-top: 22px;
   }
 
