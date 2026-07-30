@@ -43,7 +43,7 @@ function onOpen() {
     .addToUi();
 }
 
-function setupSheets() {
+function setupSheets(showAlert) {
   const spreadsheet = SpreadsheetApp.getActive();
   createSheetIfMissing_(spreadsheet, CONFIG.settingsSheet, [
     ["項目", "値"],
@@ -65,7 +65,9 @@ function setupSheets() {
   createSheetIfMissing_(spreadsheet, CONFIG.stateSheet, [
     ["店舗ID", "店舗名", "予約日", "空き枠数", "営業状態", "取得日時"],
   ]);
-  SpreadsheetApp.getUi().alert("初期シートを作成しました。");
+  if (showAlert !== false) {
+    SpreadsheetApp.getUi().alert("初期シートを作成しました。");
+  }
 }
 
 function setChatWebhookUrl() {
@@ -92,7 +94,7 @@ function setChatWebhookUrl() {
 }
 
 function setupMonitoring() {
-  setupSheets();
+  setupSheets(false);
   const ui = SpreadsheetApp.getUi();
   if (!getWebhookUrl_()) {
     ui.alert("先に「Webhook URLを設定」を実行してください。");
@@ -101,7 +103,11 @@ function setupMonitoring() {
 
   ScriptApp.getProjectTriggers()
     .filter((trigger) =>
-      ["checkAvailability", "checkMorningAvailability"].includes(
+      [
+        "checkAvailability",
+        "checkMorningAvailability",
+        "retryMorningAvailability",
+      ].includes(
         trigger.getHandlerFunction(),
       ),
     )
@@ -118,6 +124,11 @@ function setupMonitoring() {
     .nearMinute(0)
     .everyDays(1)
     .inTimezone("Asia/Tokyo")
+    .create();
+
+  ScriptApp.newTrigger("retryMorningAvailability")
+    .timeBased()
+    .everyMinutes(30)
     .create();
 
   checkAvailability(true);
@@ -182,6 +193,7 @@ function checkAvailability(silentBaseline) {
           )
         ) {
           notifications.push({
+            key,
             storeId,
             storeName,
             detailUrl: storeResult.store.detailUrl,
@@ -195,8 +207,24 @@ function checkAvailability(silentBaseline) {
       });
     });
 
-    writeCurrentState_(stateSheet, currentRows);
-    notifications.forEach(notifyFull_);
+    const failedPreviousCounts = new Map();
+    notifications.forEach((event) => {
+      try {
+        notifyFull_(event);
+      } catch (error) {
+        failedPreviousCounts.set(event.key, event.previousCount);
+        logNotificationFailure_(event, error);
+      }
+    });
+
+    const rowsToSave = currentRows.map((row) => {
+      const key = `${row[0]}|${row[2]}`;
+      if (!failedPreviousCounts.has(key)) return row;
+      const retryRow = [...row];
+      retryRow[3] = failedPreviousCounts.get(key);
+      return retryRow;
+    });
+    writeCurrentState_(stateSheet, rowsToSave);
     updateSetting_("最終確認日時", new Date());
   } finally {
     lock.releaseLock();
@@ -216,16 +244,47 @@ function notifyFull_(event) {
   ].join("\n");
 
   const result = sendChat_(message);
-  getSheet_(CONFIG.logSheet).appendRow([
+  try {
+    getSheet_(CONFIG.logSheet).appendRow([
+      new Date(),
+      event.storeId,
+      event.storeName,
+      event.date,
+      event.previousCount,
+      event.currentCount,
+      result,
+      event.reservationUrl || event.detailUrl || "",
+    ]);
+  } catch (error) {
+    console.error(`通知ログ記録エラー: ${errorMessage_(error)}`);
+  }
+}
+
+function logNotificationFailure_(event, error) {
+  try {
+    getSheet_(CONFIG.logSheet).appendRow([
+      new Date(),
+      event.storeId,
+      event.storeName,
+      event.date,
+      event.previousCount,
+      event.currentCount,
+      `送信失敗・次回再試行: ${errorMessage_(error)}`,
+      event.reservationUrl || event.detailUrl || "",
+    ]);
+  } catch (logError) {
+    console.error(`送信失敗ログ記録エラー: ${errorMessage_(logError)}`);
+  }
+}
+
+function retryMorningAvailability() {
+  const currentTime = Utilities.formatDate(
     new Date(),
-    event.storeId,
-    event.storeName,
-    event.date,
-    event.previousCount,
-    event.currentCount,
-    result,
-    event.reservationUrl || event.detailUrl || "",
-  ]);
+    "Asia/Tokyo",
+    "HH:mm",
+  );
+  if (currentTime < "09:00" || currentTime >= "12:00") return;
+  checkMorningAvailability();
 }
 
 function checkMorningAvailability() {
@@ -297,16 +356,20 @@ function checkMorningAvailability() {
 
       const result = sendChat_(message);
       matchedStores.forEach((store) => {
-        getSheet_(CONFIG.logSheet).appendRow([
-          new Date(),
-          store.id,
-          store.name,
-          today,
-          "",
-          0,
-          `午前確認通知・${result}`,
-          store.reservationUrl || store.detailUrl,
-        ]);
+        try {
+          getSheet_(CONFIG.logSheet).appendRow([
+            new Date(),
+            store.id,
+            store.name,
+            today,
+            "",
+            0,
+            `午前確認通知・${result}`,
+            store.reservationUrl || store.detailUrl,
+          ]);
+        } catch (error) {
+          console.error(`午前通知ログ記録エラー: ${errorMessage_(error)}`);
+        }
       });
     }
 
@@ -385,7 +448,7 @@ function ensureSheets_() {
     !spreadsheet.getSheetByName(CONFIG.logSheet) ||
     !spreadsheet.getSheetByName(CONFIG.stateSheet)
   ) {
-    setupSheets();
+    setupSheets(false);
   }
 }
 
@@ -415,6 +478,10 @@ function formatJapaneseDate_(date, dayOfWeek) {
     "yyyy年M月d日",
   );
   return dayOfWeek ? `${formatted}（${dayOfWeek}）` : formatted;
+}
+
+function errorMessage_(error) {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function shouldSuppressNearClosing_(storeId, date, dayOfWeek, now) {
