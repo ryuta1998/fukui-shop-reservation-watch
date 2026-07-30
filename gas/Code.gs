@@ -20,6 +20,17 @@ const STORE_NAMES = {
   R323: "ソフトバンク二の宮",
 };
 
+const STORE_CLOSING_HOURS = {
+  RA02: { weekday: 19, weekend: 20 },
+  R306: { weekday: 18, weekend: 19 },
+  R316: { weekday: 19, weekend: 20 },
+  R311: { weekday: 21, weekend: 21 },
+  WA2L: { weekday: 21, weekend: 21 },
+  R307: { weekday: 18, weekend: 19 },
+  R315: { weekday: 19, weekend: 20 },
+  R323: { weekday: 19, weekend: 20 },
+};
+
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu("満席通知")
@@ -132,6 +143,7 @@ function checkAvailability(silentBaseline) {
     const stateSheet = getSheet_(CONFIG.stateSheet);
     const previous = readPreviousState_(stateSheet);
     const fetchedAt = new Date(payload.generatedAt || Date.now());
+    const checkedAt = new Date();
     const currentRows = [];
     const notifications = [];
 
@@ -161,12 +173,19 @@ function checkAvailability(silentBaseline) {
           previousCount !== null &&
           previousCount > 0 &&
           currentCount === 0 &&
-          day.isOpen
+          day.isOpen &&
+          !shouldSuppressNearClosing_(
+            storeId,
+            day.date,
+            day.dayOfWeek || "",
+            checkedAt,
+          )
         ) {
           notifications.push({
             storeId,
             storeName,
             detailUrl: storeResult.store.detailUrl,
+            reservationUrl: storeResult.store.reservationUrl,
             date: day.date,
             dayOfWeek: day.dayOfWeek || "",
             previousCount,
@@ -192,6 +211,7 @@ function notifyFull_(event) {
     `対象日：${targetDate}`,
     "この日の予約枠が満席になりました。",
     `空き枠：${event.previousCount}枠 → 0枠`,
+    `公式予約ページ：${event.reservationUrl || event.detailUrl}`,
     `確認: ${CONFIG.siteUrl}`,
   ].join("\n");
 
@@ -204,7 +224,7 @@ function notifyFull_(event) {
     event.previousCount,
     event.currentCount,
     result,
-    event.detailUrl || "",
+    event.reservationUrl || event.detailUrl || "",
   ]);
 }
 
@@ -248,6 +268,7 @@ function checkMorningAvailability() {
           id: storeId,
           name: STORE_NAMES[storeId] || storeResult.store.name || storeId,
           detailUrl: storeResult.store.detailUrl || "",
+          reservationUrl: storeResult.store.reservationUrl || "",
           dayOfWeek: day.dayOfWeek || "",
         });
       }
@@ -258,11 +279,18 @@ function checkMorningAvailability() {
         today,
         matchedStores[0].dayOfWeek,
       );
+      const storeLines = matchedStores.reduce((lines, store) => {
+        lines.push(`・${store.name}`);
+        lines.push(
+          `  公式予約ページ：${store.reservationUrl || store.detailUrl}`,
+        );
+        return lines;
+      }, []);
       const message = [
         "【午前中予約枠・確認通知】",
         `対象日：${targetDate}`,
         "対象店舗：",
-        ...matchedStores.map((store) => `・${store.name}`),
+        ...storeLines,
         "",
         "午前中（11:45まで）の予約枠が0のため確認してください。",
       ].join("\n");
@@ -277,7 +305,7 @@ function checkMorningAvailability() {
           "",
           0,
           `午前確認通知・${result}`,
-          store.detailUrl,
+          store.reservationUrl || store.detailUrl,
         ]);
       });
     }
@@ -387,4 +415,20 @@ function formatJapaneseDate_(date, dayOfWeek) {
     "yyyy年M月d日",
   );
   return dayOfWeek ? `${formatted}（${dayOfWeek}）` : formatted;
+}
+
+function shouldSuppressNearClosing_(storeId, date, dayOfWeek, now) {
+  const today = Utilities.formatDate(now, "Asia/Tokyo", "yyyy-MM-dd");
+  if (date !== today) return false;
+
+  const hours = STORE_CLOSING_HOURS[storeId];
+  if (!hours) return false;
+
+  const isWeekend = dayOfWeek === "土" || dayOfWeek === "日";
+  const closingHour = isWeekend ? hours.weekend : hours.weekday;
+  const currentTime = Utilities.formatDate(now, "Asia/Tokyo", "HH:mm");
+  const [hour, minute] = currentTime.split(":").map(Number);
+  const currentMinutes = hour * 60 + minute;
+
+  return currentMinutes >= closingHour * 60 - 60;
 }
