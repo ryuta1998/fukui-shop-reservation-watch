@@ -1,6 +1,10 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { scrapeAvailability, type AvailabilityResult } from "../lib/softbank-reservation";
+import {
+  PURPOSE,
+  scrapeAvailability,
+  type AvailabilityResult,
+} from "../lib/softbank-reservation";
 import { STORES } from "../lib/stores";
 
 type StoreResult =
@@ -42,11 +46,7 @@ if (!results.some((result) => result.dates.length > 0)) {
 const output = {
   generatedAt: new Date().toISOString(),
   refreshMinutes: 30,
-  purpose: {
-    code: "B0",
-    label: "契約内容確認・変更",
-    durationMinutes: 30,
-  },
+  purpose: PURPOSE,
   stores: results,
 };
 

@@ -6,6 +6,7 @@ const elements = {
   name: document.querySelector("#store-name"),
   address: document.querySelector("#store-address"),
   officialLink: document.querySelector("#official-link"),
+  purposeLabel: document.querySelector("#purpose-label"),
   updatedAt: document.querySelector("#updated-at"),
   dateTabs: document.querySelector("#date-tabs"),
   slots: document.querySelector("#slots"),
@@ -99,6 +100,10 @@ function renderStore() {
   elements.name.textContent = store.store.name;
   elements.address.textContent = store.store.address;
   elements.officialLink.href = store.store.detailUrl;
+  const purpose = store.purpose || payload.purpose;
+  elements.purposeLabel.textContent = purpose
+    ? `${purpose.label}（${purpose.durationMinutes}分）`
+    : "機種変更＋データ移行（35分）";
   elements.updatedAt.textContent = `更新 ${timeFormatter.format(
     new Date(payload.generatedAt),
   )}`;

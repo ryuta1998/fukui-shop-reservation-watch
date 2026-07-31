@@ -2,10 +2,10 @@ import { existsSync } from "node:fs";
 import { chromium } from "playwright-core";
 import { getStore } from "./stores";
 
-const PURPOSE = {
-  code: "B0",
-  label: "契約内容確認・変更",
-  durationMinutes: 30,
+export const PURPOSE = {
+  code: "20+N0",
+  label: "機種変更＋データ移行",
+  durationMinutes: 35,
 };
 
 type RawBlock = {
@@ -146,7 +146,10 @@ function normalizeAvailability(
       detailUrl: store.detailUrl,
       reservationUrl: store.reservationUrl,
     },
-    purpose: PURPOSE,
+    purpose: {
+      ...PURPOSE,
+      durationMinutes: shop.workTime || PURPOSE.durationMinutes,
+    },
     updatedAt: new Date().toISOString(),
     refreshIntervalSeconds: 300,
     dates,
@@ -181,16 +184,9 @@ export async function scrapeAvailability(
       timeout: 30_000,
     });
 
-    await page.locator('label[for="workGrp_90"]').click();
-    await page.evaluate(() => {
-      document.querySelector<HTMLInputElement>("#workCdB0")?.click();
-    });
-
-    // The official screen enables this state after validating the purpose.
-    // Reproducing it avoids depending on its animation timing in headless mode.
-    await page.locator("#page0_next_button").evaluate((button) => {
-      button.classList.add("active", "next_active");
-    });
+    // 「機種変更」を1台選ぶとサポート内容の確認画面が開く。
+    await page.locator('label[for="workGrp_20"]').click();
+    await page.locator('label[for="SP_support_01"]').click();
 
     await page.locator("#page0_next_button").click();
     await page.locator("#contents_02.slick-current").waitFor({

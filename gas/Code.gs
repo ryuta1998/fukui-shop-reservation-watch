@@ -202,6 +202,7 @@ function checkAvailability(silentBaseline) {
             dayOfWeek: day.dayOfWeek || "",
             previousCount,
             currentCount,
+            purpose: storeResult.purpose || payload.purpose || null,
           });
         }
       });
@@ -237,6 +238,7 @@ function notifyFull_(event) {
     "【予約枠・満席通知】",
     `店舗名：${event.storeName}`,
     `対象日：${targetDate}`,
+    `来店目的：${formatPurpose_(event.purpose)}`,
     "この日の予約枠が満席になりました。",
     `空き枠：${event.previousCount}枠 → 0枠`,
     `公式予約ページ：${event.reservationUrl || event.detailUrl}`,
@@ -329,6 +331,7 @@ function checkMorningAvailability() {
           detailUrl: storeResult.store.detailUrl || "",
           reservationUrl: storeResult.store.reservationUrl || "",
           dayOfWeek: day.dayOfWeek || "",
+          purpose: storeResult.purpose || payload.purpose || null,
         });
       }
     });
@@ -340,6 +343,7 @@ function checkMorningAvailability() {
       );
       const storeLines = matchedStores.reduce((lines, store) => {
         lines.push(`・${store.name}`);
+        lines.push(`  測定条件：${formatPurpose_(store.purpose)}`);
         lines.push(
           `  公式予約ページ：${store.reservationUrl || store.detailUrl}`,
         );
@@ -482,6 +486,14 @@ function formatJapaneseDate_(date, dayOfWeek) {
 
 function errorMessage_(error) {
   return error instanceof Error ? error.message : String(error);
+}
+
+function formatPurpose_(purpose) {
+  if (!purpose) return "機種変更＋データ移行（35分）";
+  const duration = Number(purpose.durationMinutes || 0);
+  return duration > 0
+    ? `${purpose.label}（${duration}分）`
+    : String(purpose.label || "機種変更＋データ移行");
 }
 
 function shouldSuppressNearClosing_(storeId, date, dayOfWeek, now) {

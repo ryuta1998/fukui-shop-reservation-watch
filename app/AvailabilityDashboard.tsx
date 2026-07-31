@@ -180,8 +180,8 @@ export function AvailabilityDashboard() {
         <div>
           <span className="toolbarLabel">来店目的</span>
           <strong>
-            {data?.purpose.label ?? "契約内容確認・変更"}
-            <small>（{data?.purpose.durationMinutes ?? 30}分）</small>
+            {data?.purpose.label ?? "機種変更＋データ移行"}
+            <small>（{data?.purpose.durationMinutes ?? 35}分）</small>
           </strong>
         </div>
         <div className="toolbarActions">

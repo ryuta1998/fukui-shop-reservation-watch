@@ -33,15 +33,12 @@ await page.goto(
   { waitUntil: "domcontentloaded" },
 );
 await page.locator("#inner_contents_01").waitFor({ state: "visible" });
-await page.locator('label[for="workGrp_90"]').click();
-await page.evaluate(() => document.querySelector("#workCdB0")?.click());
-await page.locator("#page0_next_button").evaluate((button) => {
-  button.classList.add("active", "next_active");
-});
+await page.locator('label[for="workGrp_20"]').click();
+await page.locator('label[for="SP_support_01"]').click();
 console.log(
   await page.evaluate(() => ({
-    groupChecked: document.querySelector("#workGrp_90")?.checked,
-    workChecked: document.querySelector("#workCdB0")?.checked,
+    groupChecked: document.querySelector("#workGrp_20")?.checked,
+    supportChecked: document.querySelector("#SP_support_01")?.checked,
     nextDisabled: document.querySelector("#page0_next_button")?.disabled,
     nextClass: document.querySelector("#page0_next_button")?.className,
   })),
