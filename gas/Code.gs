@@ -95,10 +95,8 @@ function setChatWebhookUrl() {
 
 function setupMonitoring() {
   setupSheets(false);
-  const ui = SpreadsheetApp.getUi();
   if (!getWebhookUrl_()) {
-    ui.alert("先に「Webhook URLを設定」を実行してください。");
-    return;
+    throw new Error("先に「Webhook URLを設定」を実行してください。");
   }
 
   ScriptApp.getProjectTriggers()
@@ -133,7 +131,7 @@ function setupMonitoring() {
 
   checkAvailability(true);
   updateSetting_("監視状態", "監視中（30分ごと＋毎朝9時）");
-  ui.alert("30分ごとの監視と、毎朝9時の午前枠確認を開始しました。");
+  console.log("30分ごとの監視と、毎朝9時の午前枠確認を開始しました。");
 }
 
 function checkAvailability(silentBaseline) {
