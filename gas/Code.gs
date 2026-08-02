@@ -339,7 +339,10 @@ function checkMorningAvailability() {
       const openingHour = STORE_OPENING_HOURS[storeId] || 10;
       const openingTime = `${String(openingHour).padStart(2, "0")}:00`;
       const morningSlots = day.slots.filter(
-        (slot) => slot.time >= openingTime && slot.time <= "11:45",
+        (slot) =>
+          slot.time >= openingTime &&
+          slot.time <= "11:45" &&
+          slot.status !== "unavailable",
       );
       if (
         morningSlots.length > 0 &&
@@ -526,8 +529,8 @@ function isFreshForMorningCheck_(storeId, fetchedAt, today) {
     return false;
   }
 
-  // 9時開店店舗は、開店前の空き枠表示が開店後に変わることがあるため、
-  // 当日9時以降に取得されたデータが届くまで30分ごとの再確認に回す。
+  // 9時開店店舗は、開店直後の空き枠表示が変わることがあるため、
+  // 当日9時30分以降に取得されたデータが届くまで再確認に回す。
   if ((STORE_OPENING_HOURS[storeId] || 10) !== 9) return true;
 
   const fetchedDate = Utilities.formatDate(
@@ -536,7 +539,7 @@ function isFreshForMorningCheck_(storeId, fetchedAt, today) {
     "yyyy-MM-dd",
   );
   const fetchedTime = Utilities.formatDate(fetchedAt, "Asia/Tokyo", "HH:mm");
-  return fetchedDate === today && fetchedTime >= "09:00";
+  return fetchedDate === today && fetchedTime >= "09:30";
 }
 
 function shouldSuppressNearClosing_(storeId, date, dayOfWeek, now) {
