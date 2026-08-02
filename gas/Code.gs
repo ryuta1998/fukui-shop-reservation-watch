@@ -6,7 +6,7 @@ const CONFIG = {
   stateSheet: "監視状態",
   logSheet: "満席通知ログ",
   webhookProperty: "GOOGLE_CHAT_WEBHOOK_URL",
-  morningCheckProperty: "LAST_MORNING_CHECK_DATE",
+  morningCheckPropertyPrefix: "LAST_MORNING_CHECK_",
 };
 
 const STORE_NAMES = {
@@ -29,6 +29,17 @@ const STORE_CLOSING_HOURS = {
   R307: { weekday: 18, weekend: 19 },
   R315: { weekday: 19, weekend: 20 },
   R323: { weekday: 19, weekend: 20 },
+};
+
+const STORE_OPENING_HOURS = {
+  RA02: 10,
+  R306: 9,
+  R316: 10,
+  R311: 10,
+  WA2L: 10,
+  R307: 9,
+  R315: 10,
+  R323: 10,
 };
 
 function onOpen() {
@@ -299,7 +310,6 @@ function checkMorningAvailability() {
       "yyyy-MM-dd",
     );
     const properties = PropertiesService.getScriptProperties();
-    if (properties.getProperty(CONFIG.morningCheckProperty) === today) return;
 
     const response = UrlFetchApp.fetch(
       `${CONFIG.dataUrl}?t=${Date.now()}`,
@@ -310,19 +320,31 @@ function checkMorningAvailability() {
     }
 
     const payload = JSON.parse(response.getContentText());
+    const fetchedAt = new Date(payload.generatedAt || 0);
     const matchedStores = [];
+    const evaluatedStoreIds = [];
 
     (payload.stores || []).forEach((storeResult) => {
       if (!storeResult.store || !Array.isArray(storeResult.dates)) return;
-      const day = storeResult.dates.find((item) => item.date === today);
-      if (!day?.isOpen || !Array.isArray(day.slots)) return;
+      const storeId = storeResult.store.id;
+      const checkProperty = `${CONFIG.morningCheckPropertyPrefix}${storeId}`;
+      if (properties.getProperty(checkProperty) === today) return;
+      if (!isFreshForMorningCheck_(storeId, fetchedAt, today)) return;
 
-      const morningSlots = day.slots.filter((slot) => slot.time <= "11:45");
+      const day = storeResult.dates.find((item) => item.date === today);
+      if (!day || !Array.isArray(day.slots)) return;
+      evaluatedStoreIds.push(storeId);
+      if (!day.isOpen) return;
+
+      const openingHour = STORE_OPENING_HOURS[storeId] || 10;
+      const openingTime = `${String(openingHour).padStart(2, "0")}:00`;
+      const morningSlots = day.slots.filter(
+        (slot) => slot.time >= openingTime && slot.time <= "11:45",
+      );
       if (
         morningSlots.length > 0 &&
         morningSlots.every((slot) => slot.status === "full")
       ) {
-        const storeId = storeResult.store.id;
         matchedStores.push({
           id: storeId,
           name: STORE_NAMES[storeId] || storeResult.store.name || storeId,
@@ -375,7 +397,12 @@ function checkMorningAvailability() {
       });
     }
 
-    properties.setProperty(CONFIG.morningCheckProperty, today);
+    evaluatedStoreIds.forEach((storeId) => {
+      properties.setProperty(
+        `${CONFIG.morningCheckPropertyPrefix}${storeId}`,
+        today,
+      );
+    });
   } finally {
     lock.releaseLock();
   }
@@ -492,6 +519,24 @@ function formatPurpose_(purpose) {
   return duration > 0
     ? `${purpose.label}（${duration}分）`
     : String(purpose.label || "機種変更＋データ移行");
+}
+
+function isFreshForMorningCheck_(storeId, fetchedAt, today) {
+  if (!(fetchedAt instanceof Date) || Number.isNaN(fetchedAt.getTime())) {
+    return false;
+  }
+
+  // 9時開店店舗は、開店前の空き枠表示が開店後に変わることがあるため、
+  // 当日9時以降に取得されたデータが届くまで30分ごとの再確認に回す。
+  if ((STORE_OPENING_HOURS[storeId] || 10) !== 9) return true;
+
+  const fetchedDate = Utilities.formatDate(
+    fetchedAt,
+    "Asia/Tokyo",
+    "yyyy-MM-dd",
+  );
+  const fetchedTime = Utilities.formatDate(fetchedAt, "Asia/Tokyo", "HH:mm");
+  return fetchedDate === today && fetchedTime >= "09:00";
 }
 
 function shouldSuppressNearClosing_(storeId, date, dayOfWeek, now) {
